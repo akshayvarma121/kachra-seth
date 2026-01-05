@@ -47,8 +47,8 @@ frontend/
   index.html
   package.json
 A similar backend/ folder can host the FastAPI services that power these UI calls.
-
-🧑‍💻 Getting Started (Frontend)
+```
+##🧑‍💻 Getting Started (Frontend)
 Install dependencies:
 
 bash
