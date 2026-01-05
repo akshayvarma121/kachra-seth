@@ -46,9 +46,6 @@ frontend/
     main.jsx
   index.html
   package.json
-
-
-
 A similar backend/ folder can host the FastAPI services that power these UI calls.
 
 🧑‍💻 Getting Started (Frontend)
