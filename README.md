@@ -55,15 +55,14 @@ bash
 cd frontend
 npm install
 Run the dev server:
-
-bash
+```
 npm run dev
 Open the app in your browser 
 Log in via the LoginCard (local stub) to see the full dashboard and navigation.
-
+```
 🔌 Backend Integration (FastAPI – planned)
 The UI already calls an abstracted API layer:
-
+```
 getDashboardSummary(currentUser)
 
 getBinById(binId)
@@ -75,7 +74,7 @@ getUserLeaderboard()
 classifyWasteItem(key)
 
 You can implement these in a FastAPI backend and point the frontend to it via environment variables (e.g. VITE_API_URL) and src/api/index.js.
-
+```
 🌱 Future Enhancements
 Real sensor and GPS integration for live bin fill levels and routing fuel savings.
 
