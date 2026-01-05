@@ -58,10 +58,7 @@ Run the dev server:
 
 bash
 npm run dev
-Open the app in your browser (default):
-
-text
-http://localhost:5173
+Open the app in your browser 
 Log in via the LoginCard (local stub) to see the full dashboard and navigation.
 
 🔌 Backend Integration (FastAPI – planned)
