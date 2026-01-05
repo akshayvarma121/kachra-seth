@@ -46,3 +46,47 @@ frontend/
     main.jsx
   index.html
   package.json
+
+
+
+A similar backend/ folder can host the FastAPI services that power these UI calls.
+
+🧑‍💻 Getting Started (Frontend)
+Install dependencies:
+
+bash
+cd frontend
+npm install
+Run the dev server:
+
+bash
+npm run dev
+Open the app in your browser (default):
+
+text
+http://localhost:5173
+Log in via the LoginCard (local stub) to see the full dashboard and navigation.
+
+🔌 Backend Integration (FastAPI – planned)
+The UI already calls an abstracted API layer:
+
+getDashboardSummary(currentUser)
+
+getBinById(binId)
+
+getNeighbourhoodLeaderboard()
+
+getUserLeaderboard()
+
+classifyWasteItem(key)
+
+You can implement these in a FastAPI backend and point the frontend to it via environment variables (e.g. VITE_API_URL) and src/api/index.js.
+
+🌱 Future Enhancements
+Real sensor and GPS integration for live bin fill levels and routing fuel savings.
+
+Historical trend charts for ward performance and citizen participation.
+
+Stronger AI classification model (images + text) for waste items.
+
+Role-based access: admin (city), ward manager, and citizen views.
