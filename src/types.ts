@@ -3,11 +3,22 @@ export type Role = 'citizen' | 'staff' | 'admin';
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string; // 👈 Made optional to fix the build error
   role: Role;
   points?: number;
   avatar?: string;
 }
+
+// 👇 Added missing types
+export interface Transaction {
+  id: string;
+  type: 'earn' | 'redeem';
+  amount: number;
+  description: string;
+  date: string;
+}
+
+export type WasteCategory = 'plastic' | 'organic' | 'metal' | 'hazardous';
 
 export interface Bin {
   id: string;
@@ -37,4 +48,5 @@ export interface RouteStop {
   eta?: string;
   lat?: number;
   lng?: number;
+  isCompleted?: boolean; // 👈 Added for compatibility
 }
