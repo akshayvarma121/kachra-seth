@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, X, Camera, Trash2, AlertOctagon, Ban } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, X, Trash2, AlertOctagon, Ban } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import confetti from 'canvas-confetti';
@@ -39,28 +39,40 @@ export const QRScanTab = () => {
       const binId = parts[2];
       const location = parts[3] || 'Unknown';
 
+      // 🔊 PLAY BEEP SOUND (Success)
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+      audio.play().catch(e => console.log("Audio blocked by browser", e));
+
       // 🛑 STEP 1: CHECK SPAM
       if (!checkCooldown(binId)) {
-         setErrorMsg("You already scanned this bin today! Come back tomorrow.");
-         setStep('error');
-         return;
+          setErrorMsg("You already scanned this bin today! Come back tomorrow.");
+          setStep('error');
+          return;
       }
 
       // ✅ STEP 2: PROCEED TO REPORTING
       setScannedBin({ binId, location });
       setStep('report'); // Move to "Report Status" screen
     } else {
+      // 🔊 PLAY ERROR SOUND
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/mechanical_clock_ring.ogg');
+      audio.play().catch(e => console.log("Audio blocked", e));
+
       setErrorMsg('Invalid QR Code. This is not a Kachra Seth Bin.');
       setStep('error');
     }
   };
 
-  const submitReport = (status: string) => {
+  const submitReport = (_status: string) => {
      // 🚀 FINAL SUBMISSION
      saveScan(scannedBin.binId); // Lock this bin for the day
      updatePoints(20); // Award Points
      setStep('success');
      confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#39FF14', '#ffffff'] });
+     
+     // 🔊 PLAY COIN SOUND
+     const audio = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
+     audio.play().catch(e => console.log("Audio blocked", e));
   };
 
   const reset = () => {
@@ -84,10 +96,12 @@ export const QRScanTab = () => {
         {step === 'scan' && (
           <div className="relative h-full w-full">
             <div className="h-full w-full [&>section]:h-full [&>section]:w-full [&_video]:object-cover">
+               {/* 👇 FIXED: No 'audio' prop, added className */}
                <Scanner 
                   onScan={handleScan} 
                   onError={(err) => console.error(err)}
-                  components={{ audio: false, finder: false }}
+                  constraints={{ facingMode: 'environment' }}
+                  components={{ finder: false }}
                   styles={{ container: { height: '100%', width: '100%' } }}
                />
             </div>
@@ -105,7 +119,7 @@ export const QRScanTab = () => {
           </div>
         )}
 
-        {/* 📝 STATE 2: REPORT FILL LEVEL (NEW!) */}
+        {/* 📝 STATE 2: REPORT FILL LEVEL */}
         {step === 'report' && (
            <div className="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col p-6 animate-in slide-in-from-bottom duration-300">
               <h3 className="text-2xl font-black uppercase italic dark:text-white mb-2">One Last Step!</h3>

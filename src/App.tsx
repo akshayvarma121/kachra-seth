@@ -7,7 +7,7 @@ import { AdminDashboard } from '@/features/admin/AdminDashboard';
 import { Footer } from '@/components/Footer'; // ✅ Import Footer
 import { useAuthStore } from '@/store/authStore';
 
-const ProtectedRoute = ({ children, allowedRoles }: { children: JSX.Element, allowedRoles: string[] }) => {
+const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles: string[] }) => {
   const { user, isAuthenticated } = useAuthStore();
   
   if (!isAuthenticated || !user) return <Navigate to="/" replace />;
@@ -17,7 +17,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: JSX.Element, all
 };
 
 // Redirect root to dashboard if already logged in
-const PublicRoute = ({ children }: { children: JSX.Element }) => {
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isAuthenticated } = useAuthStore();
   
   if (isAuthenticated && user) {
