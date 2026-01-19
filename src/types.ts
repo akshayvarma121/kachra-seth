@@ -11,21 +11,21 @@ export interface User {
 
 export interface Transaction {
   id: string;
-  userId?: string; // 👈 Added this
+  userId?: string;
   type: 'earn' | 'redeem';
   amount: number;
   description: string;
   date: string;
+  category?: string; // 👈 Added this optional field
 }
 
-// 👈 Expanded this list to match your Mock API
 export type WasteCategory = 'organic' | 'plastic' | 'metal' | 'hazardous' | 'paper' | 'glass' | 'e-waste';
 
 export interface Bin {
   id: string;
   lat: number;
   lng: number;
-  fillLevel: number; // 👈 We use fillLevel, not 'level'
+  fillLevel: number;
   status: 'active' | 'critical' | 'pickup_scheduled';
   lastPickup: string;
   type: 'general' | 'recyclable' | 'hazardous';
@@ -43,7 +43,7 @@ export interface CollectionTask {
 
 export interface RouteStop {
   id: string;
-  binId?: string; // 👈 Added optional binId
+  binId?: string;
   address: string;
   type: 'bin' | 'dropoff';
   status: 'pending' | 'completed';

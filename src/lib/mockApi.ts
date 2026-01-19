@@ -1,5 +1,5 @@
 // ✅ Use 'import type' to avoid Vite build errors
-import type { User, Transaction, WasteCategory } from '@/types';
+import type { User, Transaction, WasteCategory, Bin } from '@/types';
 
 // ==========================================
 // 1. MOCK DATASETS
@@ -9,29 +9,32 @@ const MOCK_USERS: User[] = [
   { 
     id: '1', 
     name: 'Rohan Kumar', 
+    email: 'citizen@kachra.com',
     role: 'citizen', 
     points: 1250, 
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rohan' 
   },
   { 
     id: '2', 
-    name: 'Staff Operator', 
+    name: 'Vikram Singh', 
+    email: 'staff@kachra.com',
     role: 'staff', 
     points: 0, 
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Staff' 
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram' 
   },
   { 
     id: '3', 
-    name: 'Admin User', 
+    name: 'Admin Control', 
+    email: 'admin@kachra.com',
     role: 'admin', 
     points: 0, 
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin' 
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin' 
   },
 ];
 
 const MOCK_HISTORY: Transaction[] = [
-  { id: 't1', userId: '1', category: 'Organic', weight: 2.5, pointsEarned: 25, date: new Date().toISOString(), status: 'verified' },
-  { id: 't2', userId: '1', category: 'Plastic', weight: 0.5, pointsEarned: 50, date: new Date(Date.now() - 86400000).toISOString(), status: 'verified' },
+  { id: 't1', userId: '1', category: 'organic', amount: 2.5, description: 'Organic Waste', type: 'earn', date: new Date().toISOString() },
+  { id: 't2', userId: '1', category: 'plastic', amount: 0.5, description: 'Plastic Bottles', type: 'earn', date: new Date(Date.now() - 86400000).toISOString() },
 ];
 
 export const MOCK_REWARDS = [
@@ -49,21 +52,21 @@ export const CITIES = ['Bhopal', 'Indore', 'Jabalpur', 'Gwalior'];
 
 const getBinColor = (cat: string) => {
   switch(cat) {
-    case 'Organic': return 'bg-green-500';
-    case 'Plastic': return 'bg-yellow-500';
-    case 'Paper': return 'bg-blue-500';
-    case 'Metal': return 'bg-gray-500';
-    case 'Glass': return 'bg-amber-700';
-    case 'E-waste': return 'bg-red-500';
+    case 'organic': return 'bg-green-500';
+    case 'plastic': return 'bg-yellow-500';
+    case 'paper': return 'bg-blue-500';
+    case 'metal': return 'bg-gray-500';
+    case 'glass': return 'bg-amber-700';
+    case 'e-waste': return 'bg-red-500';
     default: return 'bg-black';
   }
 };
 
 const getRecycleTip = (cat: string) => {
-  if (cat === 'Organic') return "Great for composting! Keep it dry.";
-  if (cat === 'Plastic') return "Rinse it before throwing. Crush to save space.";
-  if (cat === 'E-waste') return "Dangerous! Do not mix with regular trash.";
-  if (cat === 'Paper') return "Keep it dry and clean. No grease!";
+  if (cat === 'organic') return "Great for composting! Keep it dry.";
+  if (cat === 'plastic') return "Rinse it before throwing. Crush to save space.";
+  if (cat === 'e-waste') return "Dangerous! Do not mix with regular trash.";
+  if (cat === 'paper') return "Keep it dry and clean. No grease!";
   return "Thanks for keeping the city clean!";
 };
 
@@ -72,41 +75,52 @@ const getRecycleTip = (cat: string) => {
 // ==========================================
 
 // --- AUTH ---
-export const mockLogin = async (role: string): Promise<User> => {
+export const mockLogin = async (email: string, role: string): Promise<User> => {
   await new Promise(r => setTimeout(r, 800)); // Simulate network delay
+  
+  // Return mock user based on role (ignoring email for demo)
   const user = MOCK_USERS.find(u => u.role === role);
-  if (!user) throw new Error('User not found');
-  return user;
+  if (!user) {
+    // Fallback if specific role not found in mock array
+    return {
+        id: '99',
+        name: 'Guest User',
+        email: email,
+        role: role as any,
+        points: 0,
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'
+    };
+  }
+  return { ...user, email }; // Return user with the email typed in
 };
 
 // --- CITIZEN FEATURES ---
-export const mockFetchHistory = async (): Promise<Transaction[]> => {
+export const mockGetHistory = async (): Promise<Transaction[]> => {
   await new Promise(r => setTimeout(r, 500));
   return MOCK_HISTORY;
 };
 
-export const mockSubmitWaste = async (category: WasteCategory, weight: number): Promise<Transaction> => {
+export const mockFetchHistory = mockGetHistory; // Alias for compatibility
+
+export const mockSubmitWaste = async (category: string, weight: number): Promise<Transaction> => {
   await new Promise(r => setTimeout(r, 1000));
   return {
     id: Math.random().toString(36).substr(2, 9),
     userId: '1',
     category,
-    weight,
-    pointsEarned: Math.floor(weight * 10),
+    amount: weight,
+    description: `Recycled ${category}`,
+    type: 'earn',
     date: new Date().toISOString(),
-    status: 'pending'
   };
 };
 
-export const mockClassifyImage = async (file: File) => {
+export const mockClassifyImage = async (_file: File) => {
   await new Promise(r => setTimeout(r, 2000)); // Simulate AI processing
   
-  // Random "AI" Decision
-  // Find this line:
-
-
-// REPLACE it with this (Lowercase):
-const categories: any[] = ['organic', 'plastic', 'paper', 'metal', 'glass', 'e-waste'];
+  // ✅ FIXED: Clean array definition
+  const categories: WasteCategory[] = ['organic', 'plastic', 'paper', 'metal', 'glass', 'e-waste'];
+  
   const randomCat = categories[Math.floor(Math.random() * categories.length)];
   const confidence = (Math.random() * (0.99 - 0.75) + 0.75).toFixed(2); // 75-99% confidence
 
@@ -127,14 +141,24 @@ export const mockGetLeaderboard = async () => {
     { rank: 3, name: "Amit Verma", points: 2650, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Amit", trend: 'up' },
     { rank: 4, name: "Neha Gupta", points: 2400, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Neha", trend: 'down' },
     { rank: 5, name: "Vikram Singh", points: 2150, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram", trend: 'up' },
-    { rank: 6, name: "You", points: 1980, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix", trend: 'up' }, // Your User
-    { rank: 7, name: "Anjali D.", points: 1850, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Anjali", trend: 'down' },
-    { rank: 8, name: "Rahul K.", points: 1600, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul", trend: 'same' },
-    { rank: 9, name: "Suresh P.", points: 1450, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Suresh", trend: 'down' },
-    { rank: 10, name: "Meera J.", points: 1200, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Meera", trend: 'up' },
-    { rank: 11, name: "Kabir", points: 900, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Kabir", trend: 'same' },
-    { rank: 12, name: "Tara", points: 850, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tara", trend: 'down' },
+    { rank: 6, name: "You", points: 1980, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix", trend: 'up' },
   ];
+};
+
+// --- STAFF FEATURES ---
+export const mockGetBins = async (): Promise<Bin[]> => {
+    await new Promise(r => setTimeout(r, 500));
+    return [
+      { id: '101', lat: 23.259933, lng: 77.412613, fillLevel: 80, status: 'critical', lastPickup: '4h ago', type: 'general', address: 'MP Nagar Zone 1' },
+      { id: '102', lat: 23.250000, lng: 77.400000, fillLevel: 30, status: 'active', lastPickup: '1d ago', type: 'recyclable', address: 'New Market' },
+      { id: '103', lat: 23.260000, lng: 77.420000, fillLevel: 95, status: 'critical', lastPickup: '6h ago', type: 'hazardous', address: 'Hamidia Hospital' },
+    ];
+};
+  
+export const mockUploadEvidence = async (taskId: string, _file: File) => {
+    await new Promise(r => setTimeout(r, 1500));
+    console.log(`Uploaded evidence for task ${taskId}`);
+    return { success: true, url: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&q=80' };
 };
 
 // --- ADMIN FEATURES ---
