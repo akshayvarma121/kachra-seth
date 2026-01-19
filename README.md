@@ -1,85 +1,73 @@
-# Kachra Seth – Smart City Waste Operations Console
+# React + TypeScript + Vite
 
-Kachra Seth is a React + FastAPI web application that gives city teams and citizens a unified view of ward‑level waste operations. It focuses on visibility, gamification, and guidance rather than raw data dumps.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## 🚀 Features
+Currently, two official plugins are available:
 
-- 📊 **Operations dashboard**  
-  Ward‑wise snapshot with today’s collections, fuel saved, and active citizen usage, plus a simple waste density heatmap by sub‑zone.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-- 🧹 **QR-based bin verification (simulated)**  
-  “Scan” a bin ID to fetch its status, fill level, last collection time, and health state (healthy / warning / overflow / not registered).
+## React Compiler
 
-- 🏆 **Leaderboards for wards and citizens**  
-  Neighbourhood green scores (segregation, participation, complaint‑free days) and a Top Citizens table that highlights the logged‑in user.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-- ♻️ **Waste classification guidance**  
-  Simple AI-style classification API that maps common items (plastic bottle, banana peel, used syringe, etc.) to category, bin colour, confidence, and disposal tips.
+## Expanding the ESLint configuration
 
-- 💠 **Floating glass navigation UI**  
-  Modern glassmorphism navigation bar with emoji tabs for Dashboard, QR Scan, Leaderboard, and Classify, tuned for both desktop and mobile layouts.
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## 🧱 Tech Stack
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-- **Frontend:** React, Vite, Tailwind CSS, custom floating navigation components  
-- **Backend:** Python, FastAPI (planned integration through `src/api/index.js`)  
-- **Architecture:**  
-  - `src/pages/*` for main screens (Dashboard, QR Scan, Leaderboard, Classify)  
-  - `src/components/LoginCard.jsx` for authentication shell  
-  - `src/api/index.js` as a single API layer for future FastAPI endpoints
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
 
-## 📂 Project Structure (frontend)
-
-```text
-frontend/
-  src/
-    api/
-      index.js          # getDashboardSummary, getBinById, leaderboards, classification
-    components/
-      LoginCard.jsx
-    pages/
-      DashboardPage.jsx
-      QrScanPage.jsx
-      LeaderboardPage.jsx
-      ClassifyPage.jsx
-    App.jsx             # Login + floating nav + tab routing
-    main.jsx
-  index.html
-  package.json
-A similar backend/ folder can host the FastAPI services that power these UI calls.
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-##🧑‍💻 Getting Started (Frontend)
-Install dependencies:
 
-bash
-cd frontend
-npm install
-Run the dev server:
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-npm run dev
-Open the app in your browser 
-Log in via the LoginCard (local stub) to see the full dashboard and navigation.
-```
-🔌 Backend Integration (FastAPI – planned)
-The UI already calls an abstracted API layer:
-```
-getDashboardSummary(currentUser)
-
-getBinById(binId)
-
-getNeighbourhoodLeaderboard()
-
-getUserLeaderboard()
-
-classifyWasteItem(key)
-
-You can implement these in a FastAPI backend and point the frontend to it via environment variables (e.g. VITE_API_URL) and src/api/index.js.
-```
-🌱 Future Enhancements
-Real sensor and GPS integration for live bin fill levels and routing fuel savings.
-
-Historical trend charts for ward performance and citizen participation.
-
-Stronger AI classification model (images + text) for waste items.
-
-Role-based access: admin (city), ward manager, and citizen views.
