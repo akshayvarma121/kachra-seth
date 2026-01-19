@@ -1,34 +1,57 @@
+import { CheckCircle, Circle, MapPin, Navigation } from 'lucide-react';
 import { useStaffStore } from '@/store/staffStore';
-import { CheckCircle, Circle, MapPin } from 'lucide-react';
+import { RouteStop } from '@/types';
 
 export const RouteList = () => {
   const { route, toggleStop } = useStaffStore();
 
   return (
-    <div className="bg-white dark:bg-black rounded-[32px] p-6 border-2 border-black dark:border-gray-700 shadow-neo dark:shadow-none">
-      <h3 className="font-black text-xl mb-6 flex items-center gap-2 uppercase italic dark:text-white">
-        <MapPin size={24} className="text-blue-500" />
-        Mission Objectives
-      </h3>
+    <div className="space-y-4">
+      <h3 className="text-xl font-black italic uppercase">Today's Route</h3>
+      
       <div className="space-y-3">
-        {route.map((stop, index) => (
+        {route.map((stop: RouteStop, index: number) => (
           <div 
-            key={stop.id} 
-            onClick={() => toggleStop(stop.id)}
-            className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${
-              stop.completed 
-                ? 'bg-green-100 dark:bg-green-900/20 border-green-500 opacity-60' 
-                : 'bg-gray-50 dark:bg-gray-900 border-black dark:border-gray-600 hover:-translate-y-1 hover:shadow-neo-sm'
+            key={stop.id}
+            // 👇 Fixed: using isCompleted instead of completed
+            className={`p-4 rounded-xl border-2 flex items-center gap-4 transition-all ${
+              stop.isCompleted 
+                ? 'bg-green-50 border-green-500 opacity-60' 
+                : 'bg-white dark:bg-gray-800 border-black dark:border-gray-600'
             }`}
           >
-            <div className="flex flex-col items-center gap-1">
-              <div className="text-xs font-black text-gray-400">#{index + 1}</div>
-            </div>
+            <button onClick={() => toggleStop(stop.id)}>
+              {stop.isCompleted ? (
+                <CheckCircle className="text-green-600 fill-green-100" size={24} />
+              ) : (
+                <Circle className="text-gray-400" size={24} />
+              )}
+            </button>
+
             <div className="flex-1">
-              <div className="font-bold text-black dark:text-gray-100 text-lg leading-none mb-1">{stop.address}</div>
-              <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Target: {stop.binId}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black bg-black text-white px-2 py-1 rounded">
+                  #{index + 1}
+                </span>
+                <h4 className={`font-bold ${stop.isCompleted ? 'line-through text-gray-400' : 'dark:text-white'}`}>
+                  {stop.address}
+                </h4>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider font-bold">
+                {stop.type} • {stop.eta || '--:--'}
+              </p>
             </div>
-            {stop.completed ? <CheckCircle className="text-green-600 dark:text-green-400" size={28} /> : <Circle className="text-gray-300 dark:text-gray-600" size={28} />}
+
+            {/* 👇 Fixed: Added safety check for binId */}
+            {stop.type === 'bin' && stop.binId && (
+               <div className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+                  Bin #{stop.binId}
+               </div>
+            )}
+            
+            <button className="p-2 bg-brand-neon rounded-lg border-2 border-black hover:scale-105 transition-transform">
+               <Navigation size={16} />
+            </button>
           </div>
         ))}
       </div>

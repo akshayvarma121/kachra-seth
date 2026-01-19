@@ -3,28 +3,29 @@ export type Role = 'citizen' | 'staff' | 'admin';
 export interface User {
   id: string;
   name: string;
-  email?: string; // 👈 Made optional to fix the build error
+  email?: string;
   role: Role;
   points?: number;
   avatar?: string;
 }
 
-// 👇 Added missing types
 export interface Transaction {
   id: string;
+  userId?: string; // 👈 Added this
   type: 'earn' | 'redeem';
   amount: number;
   description: string;
   date: string;
 }
 
-export type WasteCategory = 'plastic' | 'organic' | 'metal' | 'hazardous';
+// 👈 Expanded this list to match your Mock API
+export type WasteCategory = 'organic' | 'plastic' | 'metal' | 'hazardous' | 'paper' | 'glass' | 'e-waste';
 
 export interface Bin {
   id: string;
   lat: number;
   lng: number;
-  fillLevel: number; // 0-100
+  fillLevel: number; // 👈 We use fillLevel, not 'level'
   status: 'active' | 'critical' | 'pickup_scheduled';
   lastPickup: string;
   type: 'general' | 'recyclable' | 'hazardous';
@@ -42,11 +43,12 @@ export interface CollectionTask {
 
 export interface RouteStop {
   id: string;
+  binId?: string; // 👈 Added optional binId
   address: string;
   type: 'bin' | 'dropoff';
   status: 'pending' | 'completed';
   eta?: string;
   lat?: number;
   lng?: number;
-  isCompleted?: boolean; // 👈 Added for compatibility
+  isCompleted?: boolean;
 }

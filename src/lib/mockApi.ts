@@ -102,7 +102,11 @@ export const mockClassifyImage = async (file: File) => {
   await new Promise(r => setTimeout(r, 2000)); // Simulate AI processing
   
   // Random "AI" Decision
-  const categories: WasteCategory[] = ['Organic', 'Plastic', 'Paper', 'Metal', 'Glass', 'E-waste'];
+  // Find this line:
+
+
+// REPLACE it with this (Lowercase):
+const categories: any[] = ['organic', 'plastic', 'paper', 'metal', 'glass', 'e-waste'];
   const randomCat = categories[Math.floor(Math.random() * categories.length)];
   const confidence = (Math.random() * (0.99 - 0.75) + 0.75).toFixed(2); // 75-99% confidence
 

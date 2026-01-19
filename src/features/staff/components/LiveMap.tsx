@@ -1,63 +1,55 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { Icon } from 'leaflet';
 import { useStaffStore } from '@/store/staffStore';
+import { Bin } from '@/types';
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { useEffect } from 'react';
 
-// Fix Leaflet Default Icon
-const createIcon = (color: string) => new L.DivIcon({
-  className: 'bg-transparent',
-  html: `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`
+// Fix Leaflet Icons
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
+const truckIcon = new Icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/2554/2554936.png', // Truck emoji/icon
+  iconSize: [40, 40],
 });
 
-const VehicleMarker = () => {
-  const { vehicleLoc } = useStaffStore();
-  const map = useMap();
-  
-  useEffect(() => {
-    map.flyTo([vehicleLoc.lat, vehicleLoc.lng], map.getZoom());
-  }, [vehicleLoc]);
-
-  return (
-    <Marker 
-      position={[vehicleLoc.lat, vehicleLoc.lng]} 
-      icon={new L.DivIcon({ html: '🚛', className: 'text-2xl' })}
-    >
-       <Popup>You are here</Popup>
-    </Marker>
-  );
-};
+const binIcon = new Icon({
+  iconUrl: iconUrl,
+  shadowUrl: shadowUrl,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
 
 export const LiveMap = () => {
-  const { bins } = useStaffStore();
+  const { vehicleLoc, bins } = useStaffStore();
 
-  const getBinColor = (level: number) => {
-    if (level > 80) return '#ef4444'; // Red
-    if (level > 50) return '#eab308'; // Yellow
-    return '#22c55e'; // Green
-  };
+  // 🛡️ Safe check for vehicle location
+  const centerPos: [number, number] = vehicleLoc ? [vehicleLoc[0], vehicleLoc[1]] : [23.2599, 77.4126];
 
   return (
-    <div className="h-[400px] w-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 z-0">
-      <MapContainer center={[23.2599, 77.4126]} zoom={14} style={{ height: '100%', width: '100%' }}>
+    <div className="h-[400px] rounded-3xl overflow-hidden border-4 border-black dark:border-gray-700 shadow-neo z-0 relative">
+      <MapContainer center={centerPos} zoom={13} style={{ height: '100%', width: '100%' }}>
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; OpenStreetMap'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; OpenStreetMap contributors'
         />
-        <VehicleMarker />
-        
-        {bins.map(bin => (
-          <Marker 
-            key={bin.id} 
-            position={[bin.lat, bin.lng]}
-            icon={createIcon(getBinColor(bin.level))}
-          >
+
+        {/* 🚛 Staff Truck */}
+        {vehicleLoc && (
+          <Marker position={[vehicleLoc[0], vehicleLoc[1]]} icon={truckIcon}>
+             <Popup>You are here</Popup>
+          </Marker>
+        )}
+
+        {/* 🗑️ Bins */}
+        {bins.map((bin: Bin) => (
+          <Marker key={bin.id} position={[bin.lat, bin.lng]} icon={binIcon}>
             <Popup>
-              <div className="text-center">
-                <strong className="block text-lg">Bin {bin.id}</strong>
-                <div className={`text-xs font-bold px-2 py-1 rounded text-white mt-1 ${getBinColor(bin.level) === '#ef4444' ? 'bg-red-500' : 'bg-green-500'}`}>
-                  {bin.level}% Full
-                </div>
+              <div className="p-2">
+                <h3 className="font-bold">{bin.address}</h3>
+                {/* 👇 Fixed: changed .level to .fillLevel */}
+                <p>Fill: {bin.fillLevel}%</p> 
+                <p className="capitalize">Status: {bin.status}</p>
               </div>
             </Popup>
           </Marker>
