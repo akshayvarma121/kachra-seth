@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import { CheckCircle, Navigation, Scan, Fuel, Clock, Trash2, AlertTriangle, ArrowRight, Camera, X, UploadCloud, Siren, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { CheckCircle, Navigation, AlertTriangle,  Camera, X, UploadCloud, Siren, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import confetti from 'canvas-confetti';
