@@ -8,7 +8,7 @@ const VIDEO_STATES = {
   idle: {
     webm: "/assets/videos/kachra_idle.webm",
     mp4: "/assets/videos/kachra_idle.mp4",
-    defaultText: "Maal (Kachra) laye ho??"
+    defaultText: "Kachra laye ho??"
   },
   scanning: {
     webm: "/assets/videos/kachra_scan.webm",
