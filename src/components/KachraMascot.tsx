@@ -7,7 +7,6 @@ export type MascotMood = 'idle' | 'scanning' | 'rich' | 'judging';
 const VIDEO_STATES = {
   idle: {
     webm: "/assets/videos/kachra_idle.webm",
-    mp4: "/assets/videos/kachra_idle.mp4",
     defaultText: "Kachra laye ho??"
   },
   scanning: {
@@ -17,12 +16,10 @@ const VIDEO_STATES = {
   },
   rich: {
     webm: "/assets/videos/kachra_rich.webm",
-    mp4: "/assets/videos/kachra_rich.mp4",
     defaultText: "Paisa hi paisa! Mauj karo!"
   },
   judging: {
     webm: "/assets/videos/kachra_fail.webm",
-    mp4: "/assets/videos/kachra_fail.mp4",
     defaultText: "Maza nahi aya. Aur lao."
   }
 };
@@ -64,7 +61,6 @@ export const KachraMascot = ({ mood, message }: MascotProps) => {
         onTimeUpdate={(e) => { e.currentTarget.playbackRate = 1.35; }} 
       >
         <source src={data.webm} type="video/webm" />
-        <source src={data.mp4} type="video/mp4" />
       </video>
 
       {/* 🌑 GRADIENT OVERLAY */}
