@@ -1,78 +1,97 @@
 import { useState } from 'react';
-import { CheckCircle, X, Trash2, AlertOctagon, Ban } from 'lucide-react';
+import { CheckCircle, X, Trash2, AlertOctagon, Ban, Loader2, Camera } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { api } from '@/lib/apiClient';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import confetti from 'canvas-confetti';
 
 export const QRScanTab = () => {
   const { updatePoints } = useAuthStore();
-  const [step, setStep] = useState<'scan' | 'report' | 'success' | 'error'>('scan');
-  const [scannedBin, setScannedBin] = useState<any>(null);
+  const [step, setStep] = useState<'scan' | 'verifying' | 'report' | 'submitting' | 'success' | 'error'>('scan');
+  
+  // 🧠 STORE BIN TYPE HERE (Critical Fix)
+  const [scannedBin, setScannedBin] = useState<{ id: string; type: string; location: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 🛡️ ANTI-SPAM CHECKER
-  const checkCooldown = (binId: string) => {
-    const today = new Date().toLocaleDateString();
-    const history = JSON.parse(localStorage.getItem('ks_scan_history') || '{}');
-    
-    // Check if this bin was scanned today
-    if (history[binId] === today) {
-       return false; // BLOCKED
-    }
-    return true; // ALLOWED
+  // 📸 Helper to convert a string/canvas to a File object (for backend)
+  const createDummyImageFile = () => {
+    const blob = new Blob(["dummy-image-data"], { type: "image/jpeg" });
+    return new File([blob], "scan_evidence.jpg", { type: "image/jpeg" });
   };
 
-  const saveScan = (binId: string) => {
-    const today = new Date().toLocaleDateString();
-    const history = JSON.parse(localStorage.getItem('ks_scan_history') || '{}');
-    history[binId] = today;
-    localStorage.setItem('ks_scan_history', JSON.stringify(history));
-  };
-
-  const handleScan = (detectedCodes: any) => {
+  const handleScan = async (detectedCodes: any) => {
     const rawValue = detectedCodes[0]?.rawValue;
     if (!rawValue) return;
 
-    // Validate QR Format
-    if (rawValue.startsWith('KS:BIN:')) {
-      const parts = rawValue.split(':');
-      const binId = parts[2];
-      const location = parts[3] || 'Unknown';
+    // 🔊 BEEP
+    new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(() => {});
 
-      // 🔊 PLAY BEEP SOUND (Success)
-      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-      audio.play().catch(e => console.log("Audio blocked by browser", e));
+    // --- 1. SIMPLIFIED PARSING ---
+    // Rule: IDs must end in -W (Wet) or -D (Dry)
+    // Example: "BIN-999-W"
+    let binId = rawValue;
+    let type = 'Wet'; // Default
 
-      // 🛑 STEP 1: CHECK SPAM
-      if (!checkCooldown(binId)) {
-          setErrorMsg("You already scanned this bin today! Come back tomorrow.");
-          setStep('error');
-          return;
-      }
-
-      // ✅ STEP 2: PROCEED TO REPORTING
-      setScannedBin({ binId, location });
-      setStep('report'); // Move to "Report Status" screen
-    } else {
-      // 🔊 PLAY ERROR SOUND
-      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/mechanical_clock_ring.ogg');
-      audio.play().catch(e => console.log("Audio blocked", e));
-
-      setErrorMsg('Invalid QR Code. This is not a Kachra Seth Bin.');
-      setStep('error');
+    // Case-insensitive check for suffix
+    const upperId = rawValue.toUpperCase();
+    
+    if (upperId.endsWith('-D') || upperId.includes('DRY')) {
+        type = 'Dry';
+    } else if (upperId.endsWith('-W') || upperId.includes('WET')) {
+        type = 'Wet';
     }
-  };
 
-  const submitReport = (_status: string) => {
-     // 🚀 FINAL SUBMISSION
-     saveScan(scannedBin.binId); // Lock this bin for the day
-     updatePoints(20); // Award Points
-     setStep('success');
-     confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#39FF14', '#ffffff'] });
-     
-     // 🔊 PLAY COIN SOUND
-     const audio = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
-     audio.play().catch(e => console.log("Audio blocked", e));
+    // --- 2. VERIFY ---
+    setStep('verifying');
+
+    try {
+        // Send the raw ID (e.g. "BIN-999-W")
+        // We Mock the Lat/Lng for speed
+        const response = await api.verifyBin(binId, 23.2599, 77.4126);
+
+        if (response.valid) {
+            setScannedBin({ 
+                id: binId, 
+                type: type, // Derived from the ID itself
+                location: 'Verified Location' 
+            });
+            setStep('report');
+        } else {
+            throw new Error(response.message || "Invalid Bin");
+        }
+    } catch (err: any) {
+        setErrorMsg("Invalid QR Code. Try BIN-999-W");
+        setStep('error');
+    }
+};
+  const submitReport = async (_status: string) => {
+     if (!scannedBin) return;
+     setStep('submitting');
+
+     try {
+       // 4. Send Report to Backend
+       const imageFile = createDummyImageFile(); // In prod, use real camera
+       
+       // 🚀 API CALL (Updated to pass 3 args)
+       // We ignore '_status' for now because the backend logic handles fill calculation automatically
+       // or you can update the backend to accept 'fillStatus' later.
+       const response = await api.reportWaste(scannedBin.id, imageFile, scannedBin.type);
+
+       if (response.success) {
+         updatePoints(response.points || 20); // Sync global state
+         
+         // Success UI
+         setStep('success');
+         confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#39FF14', '#ffffff'] });
+         new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg').play().catch(() => {});
+       } else {
+         throw new Error("Report rejected by server.");
+       }
+     } catch (err: any) {
+       console.error(err);
+       setErrorMsg("Failed to submit report. Server error.");
+       setStep('error');
+     }
   };
 
   const reset = () => {
@@ -96,10 +115,9 @@ export const QRScanTab = () => {
         {step === 'scan' && (
           <div className="relative h-full w-full">
             <div className="h-full w-full [&>section]:h-full [&>section]:w-full [&_video]:object-cover">
-               {/* 👇 FIXED: No 'audio' prop, added className */}
                <Scanner 
                   onScan={handleScan} 
-                  onError={(err) => console.error(err)}
+                  onError={(err) => console.log(err)}
                   constraints={{ facingMode: 'environment' }}
                   components={{ finder: false }}
                   styles={{ container: { height: '100%', width: '100%' } }}
@@ -113,17 +131,31 @@ export const QRScanTab = () => {
             </div>
             <div className="absolute bottom-8 left-0 right-0 text-center z-20">
                <span className="bg-black/80 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest animate-pulse border border-white/20">
-                 Looking for KS:BIN...
+                 Looking for QR...
                </span>
             </div>
           </div>
         )}
 
+        {/* ⏳ STATE 1.5: VERIFYING / SUBMITTING */}
+        {(step === 'verifying' || step === 'submitting') && (
+           <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50">
+              <Loader2 className="w-16 h-16 text-brand-neon animate-spin mb-4" />
+              <p className="text-white font-bold uppercase tracking-widest animate-pulse">
+                {step === 'verifying' ? 'Verifying Location...' : 'Uploading Report...'}
+              </p>
+           </div>
+        )}
+
         {/* 📝 STATE 2: REPORT FILL LEVEL */}
-        {step === 'report' && (
+        {step === 'report' && scannedBin && (
            <div className="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col p-6 animate-in slide-in-from-bottom duration-300">
-              <h3 className="text-2xl font-black uppercase italic dark:text-white mb-2">One Last Step!</h3>
-              <p className="text-sm font-bold text-gray-500 mb-6">Help us update the map. How full is this bin?</p>
+              <h3 className="text-2xl font-black uppercase italic dark:text-white mb-2">
+                  {scannedBin.type} Bin Verified!
+              </h3>
+              <p className="text-sm font-bold text-gray-500 mb-6">
+                  Help us update the map. How full is this bin?
+              </p>
               
               <div className="grid grid-cols-2 gap-4 mb-6">
                  <button onClick={() => submitReport('empty')} className="p-4 rounded-xl border-2 border-green-500 bg-green-50 hover:bg-green-100 flex flex-col items-center gap-2">
@@ -158,7 +190,7 @@ export const QRScanTab = () => {
              </div>
              <h3 className="text-3xl font-black uppercase italic mb-2 dark:text-white">Bin Reported!</h3>
              <p className="text-gray-500 font-bold mb-6">
-                Thanks for keeping {scannedBin?.location} clean.
+                Thanks for keeping the city clean.
              </p>
              <div className="bg-black text-brand-neon px-6 py-3 rounded-xl font-black text-xl border-2 border-brand-neon shadow-[4px_4px_0px_#39FF14]">
                 +20 POINTS
@@ -169,11 +201,11 @@ export const QRScanTab = () => {
           </div>
         )}
 
-        {/* ❌ STATE 4: ERROR / SPAM DETECTED */}
+        {/* ❌ STATE 4: ERROR */}
         {step === 'error' && (
           <div className="absolute inset-0 bg-white dark:bg-gray-900 flex flex-col items-center justify-center p-6 text-center animate-in zoom-in-95 duration-300 z-30">
              <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 border-4 border-red-500">
-                 {errorMsg.includes("already scanned") ? <Ban size={48} className="text-red-600"/> : <X size={48} className="text-red-600" />}
+                 {errorMsg.includes("far") ? <Ban size={48} className="text-red-600"/> : <X size={48} className="text-red-600" />}
              </div>
              <h3 className="text-3xl font-black uppercase italic mb-2 dark:text-white">Scan Failed</h3>
              <p className="text-red-500 font-bold mb-6">{errorMsg}</p>

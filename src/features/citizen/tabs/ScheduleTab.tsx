@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { Phone, Navigation, Clock } from 'lucide-react';
+import { Phone, Navigation, Clock, AlertOctagon } from 'lucide-react'; 
+import { api } from '@/lib/apiClient';
+import { useNavigate } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { AlertOctagon } from 'lucide-react';
 
-// 🚚 CUSTOM ICONS
+// --- ICONS CONFIGURATION ---
 const truckIcon = new L.DivIcon({
   className: 'custom-icon',
   html: `<div style="background-color:black; border:2px solid #39FF14; color:#39FF14; padding:5px; border-radius:8px; font-weight:900; font-size:12px; text-align:center; box-shadow:0 0 15px #39FF14;">🚛</div>`,
@@ -27,21 +28,38 @@ const binIcon = new L.DivIcon({
   iconAnchor: [15, 15]
 });
 
-// 📍 MOCK DATA
-const USER_LOCATION: [number, number] = [23.2332, 77.4343]; // Arera Colony (Home)
+// --- MOCK DATA ---
+const USER_LOCATION: [number, number] = [23.2599, 77.4126]; 
 const BIG_BINS = [
-    { id: 1, lat: 23.2350, lng: 77.4300, name: "Community Bin #401", location: "Near 10 No. Market" },
-    { id: 2, lat: 23.2310, lng: 77.4380, name: "Community Bin #405", location: "Bittan Market Gate 2" },
+    { id: 1, lat: 23.2620, lng: 77.4100, name: "Community Bin #401", location: "Near 10 No. Market" },
+    { id: 2, lat: 23.2550, lng: 77.4200, name: "Community Bin #405", location: "Bittan Market Gate 2" },
 ];
 
 export const ScheduleTab = () => {
-  // 🚛 TRUCK POSITION (STATIC NOW)
-  // We removed the useEffect interval so it won't move.
-  const [truckPos] = useState<[number, number]>([23.2360, 77.4360]); 
+  const navigate = useNavigate();
+  
+  // 🟢 Live Truck State
+  const [truckPos, setTruckPos] = useState<[number, number] | null>(null);
+  const [eta, setEta] = useState<string>('Calculating...');
 
-  // 📞 CALL HANDLER
+  // 🔄 Poll Backend
+  useEffect(() => {
+    const fetchLocation = async () => {
+      try {
+        const data = await api.getTruckLocation();
+        setTruckPos([data.lat, data.lng]);
+        setEta(data.eta);
+      } catch (error) {
+        console.error("Failed to track truck:", error);
+      }
+    };
+    fetchLocation();
+    const interval = setInterval(fetchLocation, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleCall = () => {
-     window.location.href = "tel:+919876543210";
+      window.location.href = "tel:+919876543210";
   };
 
   return (
@@ -54,106 +72,73 @@ export const ScheduleTab = () => {
             <p className="font-bold text-gray-500 text-xs">Unit MP-04-1234 • Arriving Soon</p>
          </div>
          <div className="bg-black text-brand-neon px-3 py-1 rounded-lg text-xs font-black border border-brand-neon animate-pulse">
-            ETA: 12 MINS
+            ETA: {eta}
          </div>
       </div>
 
-      {/* 🗺️ MAP CONTAINER */}
+      {/* 🗺️ MAP */}
       <div className="flex-1 rounded-[32px] border-2 border-black dark:border-gray-600 relative overflow-hidden shadow-neo dark:shadow-none z-0">
-          <MapContainer center={USER_LOCATION} zoom={15} style={{ height: '100%', width: '100%' }}>
-             
-             {/* Dark Mode Map Tiles */}
-             <TileLayer
-                attribution='&copy; OpenStreetMap'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-             />
+          <MapContainer center={USER_LOCATION} zoom={14} style={{ height: '100%', width: '100%' }}>
+              <TileLayer attribution='© OpenStreetMap' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+              <Marker position={USER_LOCATION} icon={homeIcon}><Popup>My Home</Popup></Marker>
+              
+              {truckPos && (
+                <Marker position={truckPos} icon={truckIcon}><Popup>Collector Truck</Popup></Marker>
+              )}
 
-             {/* 🏠 MY HOME */}
-             <Marker position={USER_LOCATION} icon={homeIcon}>
-                <Popup><b>My Home</b><br/>Pickups Daily @ 9 AM</Popup>
-             </Marker>
-
-             {/* 🚛 TRUCK (STATIC) */}
-             <Marker position={truckPos} icon={truckIcon}>
-                <Popup><b>Collector Truck</b><br/>Driver: Ramesh<br/>Status: Loading Bin</Popup>
-             </Marker>
-
-             {/* 🗑️ BIG BINS (FALLBACK) */}
-             {BIG_BINS.map(bin => (
-                 <Marker key={bin.id} position={[bin.lat, bin.lng]} icon={binIcon}>
-                    <Popup>
-                        <b>{bin.name}</b><br/>
-                        {bin.location}<br/>
-                        <span className="text-green-600 font-bold text-xs">Always Open</span>
-                    </Popup>
-                 </Marker>
-             ))}
-
+              {BIG_BINS.map(bin => (
+                  <Marker key={bin.id} position={[bin.lat, bin.lng]} icon={binIcon}><Popup>{bin.name}</Popup></Marker>
+              ))}
           </MapContainer>
 
-          {/* OVERLAY LEGEND */}
+          {/* LEGEND */}
           <div className="absolute top-4 right-4 bg-white/90 dark:bg-black/80 backdrop-blur p-3 rounded-xl border border-black/20 text-[10px] font-bold uppercase space-y-2 z-[400]">
-              <div className="flex items-center gap-2">
-                 <span className="text-lg">🏠</span> Your Home
-              </div>
-              <div className="flex items-center gap-2">
-                 <span className="text-lg">🚛</span> Truck (Live)
-              </div>
-              <div className="flex items-center gap-2">
-                 <span className="text-lg">🗑️</span> Public Dump
-              </div>
+              <div className="flex items-center gap-2"><span className="text-lg">🏠</span> Home</div>
+              <div className="flex items-center gap-2"><span className="text-lg">🚛</span> Truck</div>
+              <div className="flex items-center gap-2"><span className="text-lg">🗑️</span> Bin</div>
           </div>
       </div>
 
-      {/* 🏎️ DRIVER CARD */}
-      <div className="bg-white dark:bg-gray-900 border-2 border-black dark:border-gray-700 rounded-[24px] p-5 shadow-neo dark:shadow-[0_0_20px_rgba(57,255,20,0.1)] flex items-center justify-between gap-4 animate-in slide-in-from-bottom duration-500">
-         
-         {/* Driver Info */}
+      {/* 🏎️ DRIVER INFO */}
+      <div className="bg-white dark:bg-gray-900 border-2 border-black dark:border-gray-700 rounded-[24px] p-4 shadow-neo flex items-center justify-between gap-4">
          <div className="flex items-center gap-3">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Ramesh" className="w-12 h-12 rounded-xl border-2 border-black bg-gray-200" />
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Ramesh" className="w-10 h-10 rounded-xl border-2 border-black bg-gray-200" />
             <div>
-               <h3 className="font-black text-lg dark:text-white uppercase">Ramesh G.</h3>
-               <div className="flex items-center gap-1 text-xs font-bold text-gray-500">
-                  <span className="text-yellow-500">★ 4.8</span> • Driver
-               </div>
+               <h3 className="font-black text-base dark:text-white uppercase">Ramesh G.</h3>
+               <div className="text-xs font-bold text-gray-500">Driver ★ 4.8</div>
             </div>
          </div>
-
-         {/* Actions */}
          <div className="flex gap-2">
-            <button 
-                onClick={handleCall}
-                className="w-12 h-12 flex items-center justify-center rounded-xl bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-2 border-green-200 dark:border-green-700 hover:scale-105 transition-transform"
-                title="Call Driver"
-            >
-                <Phone size={20} />
+            <button onClick={handleCall} className="w-10 h-10 flex items-center justify-center rounded-xl bg-green-100 text-green-700 border-2 border-green-200">
+                <Phone size={18} />
             </button>
-            <button 
-                className="w-12 h-12 flex items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-2 border-blue-200 dark:border-blue-700 hover:scale-105 transition-transform"
-                title="Navigate to Big Bin"
-            >
-                <Navigation size={20} />
+            <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-blue-100 text-blue-700 border-2 border-blue-200">
+                <Navigation size={18} />
             </button>
          </div>
-
       </div>
 
-      {/* ⚠️ MISSED TRUCK ALERT */}
-      <div className="bg-yellow-50 dark:bg-yellow-900/10 border-2 border-yellow-200 dark:border-yellow-800 p-3 rounded-xl flex items-start gap-3">
-         <Clock size={16} className="text-yellow-600 mt-1 shrink-0" />
-         <div>
-            <p className="text-xs font-black uppercase text-yellow-800 dark:text-yellow-500">Missed the truck?</p>
-            <p className="text-[10px] font-bold text-yellow-600 dark:text-yellow-400">
-               Don't litter! Go to the nearest <b>Community Bin (🗑️)</b> shown on the map. It's open 24/7.
-            </p>
-         </div>
-         
-         <button 
-        onClick={() => alert("Report Submitted! Admin has been notified to re-route a vehicle.")}
-        className="w-full py-4 bg-red-100 dark:bg-red-900/20 text-red-600 border-2 border-red-200 dark:border-red-800 rounded-2xl font-black uppercase flex items-center justify-center gap-2 hover:bg-red-200 transition-colors"
-      >
-         <AlertOctagon size={20} /> Report No-Show / Complaint
-      </button>
+      {/* 👇 HERE IS THE BUTTON YOU ARE LOOKING FOR 👇 */}
+      <div className="flex gap-3">
+        <div className="bg-yellow-50 dark:bg-yellow-900/10 border-2 border-yellow-200 dark:border-yellow-800 p-3 rounded-xl flex items-start gap-3 flex-1">
+           <Clock size={16} className="text-yellow-600 mt-1 shrink-0" />
+           <div>
+              <p className="text-xs font-black uppercase text-yellow-800 dark:text-yellow-500">Missed it?</p>
+              <p className="text-[10px] font-bold text-yellow-600 dark:text-yellow-400 leading-tight">
+                 Go to the nearest <b>Community Bin (🗑️)</b> or report an issue.
+              </p>
+           </div>
+        </div>
+
+        {/* 🚨 THIS BUTTON OPENS THE COMPLAINT PAGE 🚨 */}
+        <button 
+           // ✅ FIXED: Now points to the correct route "/citizen/complaint"
+           onClick={() => navigate('/citizen/complaint')} 
+           className="px-4 bg-red-100 dark:bg-red-900/20 text-red-600 border-2 border-red-200 dark:border-red-800 rounded-xl font-black uppercase text-xs flex flex-col items-center justify-center gap-1 hover:bg-red-200 transition-colors"
+        >
+           <AlertOctagon size={18} />
+           <span>Report</span>
+        </button>
       </div>
 
     </div>

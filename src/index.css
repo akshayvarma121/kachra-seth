@@ -17,12 +17,55 @@
 
   body {
     @apply bg-gray-50 text-gray-900 antialiased font-['Outfit'];
-    /* 🎨 THE MAGIC TEXTURE: Adds a subtle grain so it doesn't look flat */
+    /* 🎨 THE MAGIC TEXTURE */
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+    
+    /* 🛠️ GOOGLE TRANSLATE FIX: Force body to top */
+    top: 0px !important;
+    position: static !important;
   }
 }
 
-/* Hides scrollbar but allows scrolling */
+/* 🚫 GOOGLE TRANSLATE BANNER REMOVAL */
+/* This kills the white bar and the 'original text' popups */
+iframe.goog-te-banner-frame, 
+.goog-te-banner-frame.skiptranslate, 
+.goog-te-banner-frame, 
+#goog-gt-tt, 
+.goog-te-balloon-frame,
+.goog-te-gadget span {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* 🟢 NEON DROPDOWN STYLING */
+.goog-te-gadget {
+    color: transparent !important;
+    font-size: 0 !important;
+}
+
+.goog-te-gadget .goog-te-combo {
+    color: #39FF14 !important; /* Neon Green */
+    background: #000 !important;
+    border: 2px solid #39FF14 !important;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 14px !important;
+    text-transform: uppercase;
+    outline: none;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+    font-family: 'Outfit', sans-serif;
+}
+
+/* 🖱️ REMOVE HOVER HIGHLIGHTS */
+.goog-text-highlight {
+    background: none !important;
+    box-shadow: none !important;
+}
+
+/* --- YOUR EXISTING STYLES --- */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -31,7 +74,6 @@
   scrollbar-width: none;
 }
 
-/* 🚀 CUSTOM ANIMATIONS */
 @keyframes float {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }

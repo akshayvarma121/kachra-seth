@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Ticket, ShoppingBag, Coffee, Gift, Zap, Lock, CreditCard, ArrowRight } from 'lucide-react';
+import { Ticket, ShoppingBag, Coffee, Gift, Zap, Lock, CreditCard, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { api } from '@/lib/apiClient'; // 🟢 Import Real API
 import confetti from 'canvas-confetti';
 
-// 🛍️ MOCK REWARDS INVENTORY
+// 🛍️ REWARDS INVENTORY (Static list is fine for now)
 const REWARDS = [
   { id: 1, title: "PVR Movie Ticket", cost: 500, type: 'entertainment', icon: Ticket, color: "text-pink-500", bg: "bg-pink-100 dark:bg-pink-900/20", border: "border-pink-500", desc: "1 Free Ticket (Any Show)" },
   { id: 2, title: "Amazon Gift Card", cost: 1000, type: 'shopping', icon: Gift, color: "text-orange-500", bg: "bg-orange-100 dark:bg-orange-900/20", border: "border-orange-500", desc: "₹500 Voucher Balance" },
@@ -17,15 +18,29 @@ export const RewardsTab = () => {
   const { user, updatePoints } = useAuthStore();
   const [processing, setProcessing] = useState<number | null>(null);
 
-  const handleRedeem = (id: number, cost: number) => {
+  const handleRedeem = async (id: number, title: string, cost: number) => {
     if ((user?.points || 0) < cost) return;
 
     setProcessing(id);
-    setTimeout(() => {
-      updatePoints(-cost);
+    
+    try {
+      // 🟢 CALL REAL API
+      const res = await api.redeemReward(title, cost);
+      
+      if (res.success) {
+        // Update local state instantly to reflect new balance
+        // We calculate the difference manually to sync with store
+        updatePoints(-cost); 
+        
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        alert(`Successfully redeemed: ${title}! Check your email for the voucher.`);
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || "Redemption failed. Please try again.");
+    } finally {
       setProcessing(null);
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-    }, 1500);
+    }
   };
 
   return (
@@ -99,18 +114,19 @@ export const RewardsTab = () => {
                  </p>
 
                  <button
-                   disabled={!canAfford || isProcessing}
-                   onClick={() => handleRedeem(item.id, item.cost)}
-                   className={`w-full py-4 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition-all ${
-                      isProcessing
-                      ? 'bg-yellow-400 text-black cursor-wait'
-                      : canAfford
-                        ? 'bg-black text-white dark:bg-brand-neon dark:text-black hover:scale-[1.02] active:scale-95'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                   }`}
+                    disabled={!canAfford || isProcessing}
+                    // 🟢 Updated to pass all required data
+                    onClick={() => handleRedeem(item.id, item.title, item.cost)}
+                    className={`w-full py-4 rounded-xl font-black uppercase flex items-center justify-center gap-2 transition-all ${
+                       isProcessing
+                       ? 'bg-yellow-400 text-black cursor-wait'
+                       : canAfford
+                         ? 'bg-black text-white dark:bg-brand-neon dark:text-black hover:scale-[1.02] active:scale-95'
+                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
                  >
                     {isProcessing ? (
-                       <span className="animate-pulse">Processing...</span>
+                       <span className="flex items-center gap-2"><Loader2 className="animate-spin" size={18} /> Processing...</span>
                     ) : canAfford ? (
                        <>Redeem <ArrowRight size={18} /></>
                     ) : (

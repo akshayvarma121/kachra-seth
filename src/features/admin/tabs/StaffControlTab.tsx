@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { User, MessageSquare, Phone, Ban, Battery, Signal, AlertTriangle, Siren, WifiOff } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
+import { User, MessageSquare, Phone, Plus, Signal, WifiOff, Loader2, X, Power, AlertTriangle, Search, Copy, CheckCircle } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { api } from '@/lib/apiClient';
 
-// 🚚 Fix for default Leaflet marker icons
+// 🚛 LEAFLET ICON FIXES
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
@@ -16,7 +17,7 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// 🚛 TRUCK ICONS
+// Custom Map Icons
 const truckIcon = new L.DivIcon({
   className: 'custom-icon',
   html: `<div style="background-color:black; border:2px solid #39FF14; color:#39FF14; padding:5px; border-radius:8px; font-weight:900; font-size:10px; text-align:center; box-shadow:0 0 10px #39FF14;">🚛</div>`,
@@ -31,147 +32,304 @@ const offlineTruckIcon = new L.DivIcon({
   iconAnchor: [15, 15]
 });
 
-// 🚨 CRITICAL TRUCK ICON
-const criticalTruckIcon = new L.DivIcon({
-  className: 'custom-icon',
-  html: `<div style="background-color:#ef4444; border:2px solid white; color:white; padding:5px; border-radius:8px; font-weight:900; font-size:10px; text-align:center; box-shadow:0 0 15px #ef4444; animation: pulse 1s infinite;">🚛</div>`,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
-});
+const BHOPAL_CENTER: [number, number] = [23.2599, 77.4126]; 
 
-// 🗑️ CRITICAL BIN ICON
-const criticalBinIcon = new L.DivIcon({
-  className: 'custom-icon',
-  html: `<div style="background-color:#dc2626; border:2px solid white; color:white; padding:4px; border-radius:8px; font-size:12px; text-align:center; box-shadow: 0 0 20px #ef4444; animation: bounce 1s infinite;">⚠️</div>`,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15]
-});
-
-// 📍 REAL BHOPAL LOCATIONS
-const BHOPAL_CENTER: [number, number] = [23.2450, 77.4200]; 
-const CRITICAL_BIN_LOC: [number, number] = [23.2380, 77.4280]; // Bittan Market
-
+// 🛑 FALLBACK DATA
 const MOCK_DRIVERS = [
-  { id: 1, name: 'Ramesh Gupta', status: 'active', lat: 23.2332, lng: 77.4343, location: 'Arera Colony', battery: '80%', task: 'Collecting Bin #102', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ramesh' },
-  { id: 2, name: 'Suresh Yadav', status: 'offline', lat: 23.2500, lng: 77.4000, location: 'Depot HQ', battery: '100%', task: 'Connection Lost', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Suresh' },
-  { id: 3, name: 'Vikram Singh', status: 'active', lat: 23.2360, lng: 77.4290, location: 'Bittan Market', battery: '15%', task: 'Patrolling Zone 4', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram' }, 
-  { id: 4, name: 'Amit Patel', status: 'active', lat: 23.2400, lng: 77.3900, location: 'New Market', battery: '45%', task: 'En route to Dump Yard', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Amit' },
+  { id: 'd3eebc99-9c0b', name: 'Ramesh (Mock)', email: 'ramesh@ks.com', lat: 23.2599, lng: 77.4126, status: 'active', task: 'Sector A' },
+  { id: 'e4eebc99-9c0c', name: 'Suresh (Mock)', email: 'suresh@ks.com', lat: 23.2450, lng: 77.4200, status: 'offline', task: 'Off Duty' },
 ];
+
+// Helper to zoom map when driver selected
+const MapUpdater = ({ center }: { center: [number, number] }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center, 14);
+  }, [center, map]);
+  return null;
+};
 
 export const StaffControlTab = () => {
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
-  const [drivers, setDrivers] = useState(MOCK_DRIVERS);
-  const [alertMode, setAlertMode] = useState(false);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modal & Form State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newDriver, setNewDriver] = useState({ name: '', email: '' });
+  const [isAdding, setIsAdding] = useState(false);
+  const [toggling, setToggling] = useState(false);
 
-  const toggleAlert = () => {
-     const newState = !alertMode;
-     setAlertMode(newState);
-     if (newState) {
-        setDrivers(prev => prev.map(d => d.id === 3 ? { ...d, status: 'critical', task: 'RESPONDING TO OVERFLOW' } : d));
-        const vikram = drivers.find(d => d.id === 3);
-        if(vikram) setSelectedDriver({ ...vikram, status: 'critical', task: 'RESPONDING TO OVERFLOW' });
-     } else {
-        setDrivers(MOCK_DRIVERS);
-        setSelectedDriver(null);
-     }
+  // 🛡️ DATA FETCHING
+  const fetchDrivers = async () => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      // Race API against 2s timeout
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2000));
+      const data: any = await Promise.race([api.getDrivers(), timeoutPromise]);
+
+      const list = Array.isArray(data) ? data : [];
+      setDrivers(mapDrivers(list.length > 0 ? list : MOCK_DRIVERS));
+    } catch (err: any) {
+      console.warn("⚠️ Using Mock Data:", err);
+      setErrorMsg("Backend unresponsive. Showing offline data.");
+      setDrivers(mapDrivers(MOCK_DRIVERS));
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const mapDrivers = (list: any[]) => {
+    return list.map((d: any, i: number) => ({
+      id: d.id || `temp-${Math.random()}`,
+      name: d.name || 'Unknown',
+      email: d.email || 'No Email',
+      lat: (d.lat && !isNaN(d.lat)) ? d.lat : 23.2599 + (Math.random() * 0.05 - 0.025),
+      lng: (d.lng && !isNaN(d.lng)) ? d.lng : 77.4126 + (Math.random() * 0.05 - 0.025),
+      status: d.isActive ? 'active' : (d.status === 'active' ? 'active' : 'offline'),
+      task: d.isActive ? `Patrolling Sector ${i+1}` : 'Idle'
+    }));
+  };
+
+  useEffect(() => { fetchDrivers(); }, []);
+
+  // 🔄 ACTIONS
+  const handleToggleStatus = async () => {
+    if (!selectedDriver) return;
+    setToggling(true);
+    const newStatusBoolean = selectedDriver.status !== 'active';
+    
+    // Optimistic Update
+    const updatedList = drivers.map(d => 
+      d.id === selectedDriver.id ? { ...d, status: newStatusBoolean ? 'active' : 'offline' } : d
+    );
+    setDrivers(updatedList);
+    setSelectedDriver({ ...selectedDriver, status: newStatusBoolean ? 'active' : 'offline' });
+
+    try {
+      await api.updateDriverStatus(selectedDriver.id, newStatusBoolean);
+    } catch (err) {
+      alert("Failed to sync status with server.");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleAddDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAdding(true);
+    try {
+      await api.addDriver(newDriver.email, newDriver.name);
+      alert("Driver added! Default password: 'password123'");
+      setShowAddModal(false);
+      setNewDriver({ name: '', email: '' });
+      fetchDrivers();
+    } catch (err: any) {
+      alert("Failed: " + err.message);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  // Filter Logic
+  const filteredDrivers = drivers.filter(d => 
+    d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    d.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const activeCount = drivers.filter(d => d.status === 'active').length;
+
+  if (loading) {
+    return (
+      <div className="h-96 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-brand-neon w-10 h-10" />
+        <p className="text-gray-500 font-bold animate-pulse">Contacting Fleet...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+    <div className="space-y-6">
       
-      {/* 📋 LEFT: DRIVER ROSTER */}
-      <div className="lg:col-span-1 bg-white dark:bg-black border-2 border-black dark:border-gray-700 rounded-[32px] p-6 overflow-hidden flex flex-col shadow-neo dark:shadow-none">
-        <div className="flex justify-between items-center mb-6">
-            <h3 className="font-black text-2xl uppercase italic dark:text-white flex items-center gap-2">
-                <User className="text-brand-neon fill-black" /> Staff Roster
-            </h3>
-            <button onClick={toggleAlert} className={`p-2 rounded-full border-2 transition-all active:scale-95 ${alertMode ? 'bg-red-500 border-white text-white animate-pulse shadow-[0_0_10px_red]' : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 hover:text-red-500 hover:border-red-500'}`}><Siren size={18} /></button>
+      {/* 1. TOP STATS BAR */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+         <div className="bg-black text-white p-6 rounded-[24px] shadow-lg flex flex-col justify-between">
+            <h3 className="text-gray-400 font-bold uppercase text-xs">Total Staff</h3>
+            <div className="text-4xl font-black italic">{drivers.length}</div>
+         </div>
+         <div className="bg-brand-neon text-black p-6 rounded-[24px] shadow-lg flex flex-col justify-between">
+            <h3 className="text-black/60 font-bold uppercase text-xs">Active Duty</h3>
+            <div className="text-4xl font-black italic">{activeCount}</div>
+         </div>
+         <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 p-6 rounded-[24px] flex flex-col justify-between">
+            <h3 className="text-gray-400 font-bold uppercase text-xs">Offline</h3>
+            <div className="text-4xl font-black italic">{drivers.length - activeCount}</div>
+         </div>
+         <button onClick={() => setShowAddModal(true)} className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 p-6 rounded-[24px] flex flex-col justify-center items-center hover:bg-gray-50 transition-colors group">
+            <div className="bg-black text-white p-3 rounded-full group-hover:scale-110 transition-transform">
+               <Plus size={24} />
+            </div>
+            <span className="font-bold text-xs uppercase mt-2">Recruit Staff</span>
+         </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px] relative">
+      
+        {/* 2. LEFT: ROSTER LIST */}
+        <div className="lg:col-span-1 bg-white dark:bg-black border-2 border-black dark:border-gray-700 rounded-[32px] p-6 overflow-hidden flex flex-col shadow-neo dark:shadow-none">
+          
+          <div className="flex justify-between items-center mb-4">
+              <h3 className="font-black text-xl uppercase italic dark:text-white flex items-center gap-2">
+                  <User className="text-brand-neon fill-black" /> Roster
+              </h3>
+              
+              {/* 🛠️ FIX: Wrapped AlertTriangle in a div for the tooltip */}
+              {errorMsg && (
+                <div title={errorMsg}>
+                  <AlertTriangle size={18} className="text-orange-500 animate-pulse" />
+                </div>
+              )}
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative mb-4">
+             <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+             <input 
+               type="text" 
+               placeholder="Search driver..." 
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+               className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-900 rounded-xl font-bold text-sm outline-none focus:ring-2 ring-brand-neon"
+             />
+          </div>
+
+          <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
+            {filteredDrivers.map(driver => (
+              <div 
+                key={driver.id}
+                onClick={() => setSelectedDriver(driver)}
+                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all hover:bg-gray-50 dark:hover:bg-gray-900 ${
+                  selectedDriver?.id === driver.id 
+                  ? 'border-brand-neon bg-gray-50 dark:bg-gray-900 shadow-sm' 
+                  : 'border-transparent bg-gray-50 dark:bg-black'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-3">
+                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${driver.name}`} className="w-10 h-10 rounded-full border border-gray-400 bg-white" />
+                     <div className="overflow-hidden">
+                        <h4 className="font-bold text-sm truncate dark:text-white">{driver.name}</h4>
+                        <div className="flex items-center gap-2">
+                           <span className={`text-[10px] font-black uppercase ${driver.status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>
+                              {driver.status}
+                           </span>
+                           {/* COPY UUID BUTTON */}
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(driver.id); alert("UUID Copied!"); }}
+                             className="text-[9px] bg-gray-200 dark:bg-gray-800 px-1 rounded flex items-center gap-1 hover:bg-gray-300"
+                             title="Copy UUID for Truck Registration"
+                           >
+                             <Copy size={8}/> ID
+                           </button>
+                        </div>
+                     </div>
+                  </div>
+                  {driver.status === 'active' 
+                    ? <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    : <WifiOff size={14} className="text-gray-400"/>
+                  }
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="space-y-4 overflow-y-auto pr-2 no-scrollbar flex-1">
-          {drivers.map(driver => (
-            <div 
-              key={driver.id}
-              onClick={() => setSelectedDriver(driver)}
-              className={`p-4 rounded-2xl border-2 cursor-pointer transition-all hover:-translate-y-1 ${
-                selectedDriver?.id === driver.id 
-                ? driver.status === 'critical' ? 'bg-red-600 text-white border-red-800' 
-                  : driver.status === 'offline' ? 'bg-gray-600 text-white border-gray-500'
-                  : 'bg-black text-brand-neon border-brand-neon'
-                : 'bg-gray-50 dark:bg-gray-900 border-black/10 dark:border-gray-700 hover:border-black dark:hover:border-white'
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                   <img src={driver.avatar} className={`w-10 h-10 rounded-full border border-gray-400 bg-white ${driver.status === 'offline' ? 'grayscale' : ''}`} />
+        {/* 3. RIGHT: MAP & ACTIONS */}
+        <div className="lg:col-span-2 flex flex-col gap-6 h-full">
+           
+           {/* Map Container */}
+           <div className="flex-1 rounded-[32px] border-2 border-black dark:border-gray-600 shadow-neo relative overflow-hidden z-0 bg-gray-900">
+              <MapContainer center={BHOPAL_CENTER} zoom={13} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                  
+                  {/* Fly to selected driver */}
+                  {selectedDriver && <MapUpdater center={[selectedDriver.lat, selectedDriver.lng]} />}
+
+                  {drivers.map(d => (
+                      <Marker 
+                        key={d.id} 
+                        position={[d.lat, d.lng]} 
+                        icon={d.status === 'active' ? truckIcon : offlineTruckIcon} 
+                        eventHandlers={{ click: () => setSelectedDriver(d) }}
+                      >
+                        <Popup>
+                          <div className="text-center">
+                            <b className="uppercase">{d.name}</b><br/>
+                            <span className="text-xs">{d.task}</span>
+                          </div>
+                        </Popup>
+                      </Marker>
+                  ))}
+              </MapContainer>
+           </div>
+
+           {/* Action Panel (Bottom Right) */}
+           {selectedDriver ? (
+             <div className="h-40 bg-white dark:bg-black border-2 border-black dark:border-gray-700 rounded-[32px] p-6 shadow-neo animate-in slide-in-from-bottom duration-300 flex items-center justify-between">
+                <div className="flex gap-4 items-center">
+                   <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedDriver.name}`} className="w-16 h-16 rounded-2xl border-2 border-black bg-white" />
                    <div>
-                      <h4 className={`font-black text-lg leading-none ${selectedDriver?.id === driver.id ? 'text-white' : 'text-black dark:text-white'}`}>{driver.name}</h4>
-                      <p className={`text-[10px] font-bold uppercase mt-1 ${selectedDriver?.id === driver.id ? 'text-white/80' : 'text-gray-400'}`}>{driver.task}</p>
+                      <h3 className="font-black text-xl uppercase italic dark:text-white">{selectedDriver.name}</h3>
+                      <p className="text-xs font-bold text-brand-neon uppercase tracking-widest">{selectedDriver.email}</p>
+                      <div className="flex gap-2 mt-2">
+                         <button className="p-2 bg-black-100 hover:bg-black-200 rounded-full"><MessageSquare size={16}/></button>
+                         <button className="p-2 bg-black-100 hover:bg-black-200 rounded-full"><Phone size={16}/></button>
+                      </div>
                    </div>
                 </div>
-                {/* STATUS DOTS */}
-                {driver.status === 'active' && <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]"></div>}
-                {driver.status === 'offline' && <WifiOff size={16} className="text-gray-400"/>}
-                {driver.status === 'critical' && <div className="w-3 h-3 rounded-full bg-red-500 animate-bounce shadow-[0_0_10px_#ef4444]"></div>}
-              </div>
-            </div>
-          ))}
+                
+                <button 
+                  onClick={handleToggleStatus}
+                  disabled={toggling}
+                  className={`px-6 py-3 rounded-xl font-black text-xs uppercase flex items-center gap-2 border-2 transition-all ${
+                    selectedDriver.status === 'active'
+                      ? 'bg-red-100 text-red-600 border-red-200 hover:bg-red-200'
+                      : 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
+                  }`}
+                >
+                  {toggling ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
+                  {selectedDriver.status === 'active' ? 'Deactivate' : 'Activate'}
+                </button>
+             </div>
+           ) : (
+             <div className="h-40 bg-gray-100 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-[32px] flex items-center justify-center text-gray-400 font-black uppercase tracking-widest">
+                Select a driver on map to view actions
+             </div>
+           )}
         </div>
       </div>
 
-      {/* 🗺️ RIGHT: LIVE MAP */}
-      <div className="lg:col-span-2 flex flex-col gap-6">
-         <div className={`flex-1 rounded-[32px] border-2 relative overflow-hidden group z-0 transition-colors duration-500 ${alertMode ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'border-black dark:border-gray-600 shadow-neo'}`}>
-            <MapContainer center={BHOPAL_CENTER} zoom={13} style={{ height: '100%', width: '100%' }}>
-                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                {drivers.map(d => (
-                    <Marker key={d.id} position={[d.lat, d.lng]} icon={d.status === 'critical' ? criticalTruckIcon : d.status === 'offline' ? offlineTruckIcon : truckIcon} eventHandlers={{ click: () => setSelectedDriver(d) }}><Popup><b>{d.name}</b><br/>{d.task}</Popup></Marker>
-                ))}
-                {alertMode && (
-                   <><Marker position={CRITICAL_BIN_LOC} icon={criticalBinIcon}><Popup className="text-red-600 font-black">CRITICAL: BIN #102<br/>OVERFLOW 98%</Popup></Marker><CircleMarker center={CRITICAL_BIN_LOC} radius={30} pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.2 }} /></>
-                )}
-            </MapContainer>
-            {alertMode && (
-                <div className="absolute top-4 right-4 z-[400]"><div className="bg-red-600 text-white px-6 py-2 rounded-xl shadow-lg animate-pulse flex items-center gap-3"><Siren className="animate-bounce" size={20} /><div><p className="text-[10px] font-black uppercase tracking-widest leading-none">Emergency</p><p className="text-sm font-black uppercase leading-none">Bin #102 Overflow</p></div></div></div>
-            )}
-         </div>
-
-         {/* ACTION PANEL */}
-         {selectedDriver ? (
-           <div className={`h-48 border-2 rounded-[32px] p-6 shadow-neo animate-in slide-in-from-bottom duration-300 flex flex-col justify-between ${
-               selectedDriver.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10 border-red-500' : selectedDriver.status === 'offline' ? 'bg-gray-100 dark:bg-gray-900 border-gray-400' : 'bg-white dark:bg-black border-black dark:border-brand-neon'
-           }`}>
-              <div className="flex justify-between items-start">
-                 <div className="flex gap-4">
-                    <img src={selectedDriver.avatar} className={`w-12 h-12 rounded-xl border-2 border-black ${selectedDriver.status === 'offline' ? 'grayscale' : ''}`} />
-                    <div>
-                        <h3 className={`font-black text-xl uppercase italic ${selectedDriver.status === 'critical' ? 'text-red-600' : selectedDriver.status === 'offline' ? 'text-gray-500' : 'dark:text-white'}`}>
-                           {selectedDriver.status === 'critical' ? '⚠️ DISPATCH REQUIRED' : selectedDriver.status === 'offline' ? 'OFFLINE' : `Command: ${selectedDriver.name}`}
-                        </h3>
-                        <div className="flex items-center gap-3 mt-1 text-xs font-bold text-gray-500">
-                           {selectedDriver.status === 'offline' 
-                             ? <span className="flex items-center gap-1 text-red-500"><WifiOff size={12}/> Connection Lost</span> 
-                             : <span className="flex items-center gap-1"><Signal size={12}/> Online</span>
-                           }
-                           <span className="flex items-center gap-1"><Battery size={12}/> {selectedDriver.battery}</span>
-                        </div>
-                    </div>
-                 </div>
+      {/* ADD STAFF MODAL */}
+      {showAddModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-[32px]">
+           <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl w-full max-w-md border-2 border-brand-neon shadow-2xl animate-in zoom-in-95">
+              <div className="flex justify-between items-center mb-6">
+                 <h3 className="text-2xl font-black italic uppercase dark:text-white">Recruit Staff</h3>
+                 <button onClick={() => setShowAddModal(false)}><X className="text-gray-500 hover:text-red-500" /></button>
               </div>
-              
-              {/* BUTTONS (Disabled if Offline) */}
-              <div className="flex gap-4 mt-4">
-                 <button disabled={selectedDriver.status === 'offline'} className="flex-1 bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300 border-2 border-blue-200 dark:border-blue-700 hover:bg-blue-200 rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2 py-3 disabled:opacity-50 disabled:cursor-not-allowed"><MessageSquare size={18} /> Message</button>
-                 <button className="flex-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-900 dark:text-yellow-300 border-2 border-yellow-200 dark:border-yellow-700 hover:bg-yellow-200 rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2 py-3"><Phone size={18} /> Call</button>
-                 {selectedDriver.status === 'critical' && (
-                     <button className="flex-1 bg-red-600 text-white border-2 border-red-800 hover:bg-red-700 rounded-xl font-black uppercase text-sm flex items-center justify-center gap-2 py-3 shadow-lg"><AlertTriangle size={18} /> Reroute Now</button>
-                 )}
-              </div>
+              <form onSubmit={handleAddDriver} className="space-y-4">
+                 <input placeholder="Full Name" value={newDriver.name} onChange={e => setNewDriver({...newDriver, name: e.target.value})} className="w-full p-4 bg-gray-100 dark:bg-gray-900 border-2 border-transparent focus:border-brand-neon rounded-xl font-bold outline-none" required />
+                 <input placeholder="Email Address" type="email" value={newDriver.email} onChange={e => setNewDriver({...newDriver, email: e.target.value})} className="w-full p-4 bg-gray-100 dark:bg-gray-900 border-2 border-transparent focus:border-brand-neon rounded-xl font-bold outline-none" required />
+                 <button disabled={isAdding} className="w-full bg-brand-neon text-black py-4 rounded-xl font-black uppercase hover:scale-[1.02] transition-transform">
+                   {isAdding ? 'Creating Account...' : 'Confirm Recruitment'}
+                 </button>
+              </form>
            </div>
-         ) : (
-           <div className="h-48 bg-gray-100 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-[32px] flex items-center justify-center text-gray-400 font-black uppercase tracking-widest">Select a driver to view actions</div>
-         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -36,4 +36,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // 👇 THIS ALLOWS ACCESS FROM PHONE
+  server: {
+    host: true, // exposes the app to your local IP address
+    port: 5173, // keeps the port consistent
+  }
 });
