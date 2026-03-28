@@ -8,7 +8,7 @@ interface HeatMapPoint { id: string; lat: number; lng: number; wetLevel: number;
 
 // --- CONFIGURATION ---
 // ⚠️ MAKE SURE THIS IP MATCHES YOUR LAPTOP IP
-const API_BASE_URL = 'https://kachra-seth-backend.onrender.com'; 
+const API_BASE_URL = 'https://kachra-seth-backend.onrender.com/api'; 
 const TOKEN_KEY = 'kachra_token';
 
 // --- CORE REQUEST HANDLER ---
